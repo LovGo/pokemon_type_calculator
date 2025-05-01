@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { POKEMON_TYPES, PokemonType, calculateTypeEffectiveness, CustomType } from "./lib/pokemonTypes";
+import { POKEMON_TYPES, PokemonType, calculateTypeEffectiveness, CustomType, findSimilarTypes } from "./lib/pokemonTypes";
 
 export default function App() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -10,6 +10,7 @@ export default function App() {
   const [customTypeResistances, setCustomTypeResistances] = useState<string[]>([]);
   const [customTypeImmunities, setCustomTypeImmunities] = useState<string[]>([]);
   const [customTypes, setCustomTypes] = useState<CustomType[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const handleTypeChange = (index: number, type: string) => {
     if (type === "") {
@@ -30,16 +31,32 @@ export default function App() {
   const handleCustomTypeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (customTypeName) {
-      setCustomTypes(prev => [...prev, {
+      const newCustomType: CustomType = {
         name: customTypeName,
-        weaknesses: customTypeWeaknesses.filter(t => POKEMON_TYPES.includes(t as PokemonType)) as PokemonType[],
-        resistances: customTypeResistances.filter(t => POKEMON_TYPES.includes(t as PokemonType)) as PokemonType[],
-        immunities: customTypeImmunities.filter(t => POKEMON_TYPES.includes(t as PokemonType)) as PokemonType[]
-      }]);
+        weaknesses: customTypeWeaknesses,
+        resistances: customTypeResistances,
+        immunities: customTypeImmunities
+      };
+
+      // Check for similar types
+      const similarTypes = findSimilarTypes(
+        newCustomType,
+        [...POKEMON_TYPES, ...customTypes],
+        customTypes
+      );
+
+      if (similarTypes.length > 0) {
+        setErrorMessage(`This type would be identical to: ${similarTypes.join(", ")}. Please create a unique type instead.`);
+        return;
+      }
+
+      // Add the new type without modifying existing types
+      setCustomTypes([...customTypes, newCustomType]);
       setCustomTypeName("");
       setCustomTypeWeaknesses([]);
       setCustomTypeResistances([]);
       setCustomTypeImmunities([]);
+      setErrorMessage("");
       setShowCustomTypeModal(false);
     }
   };
@@ -58,7 +75,7 @@ export default function App() {
     <div className="min-h-screen flex items-center justify-center p-8 relative">
       <div className="w-full max-w-2xl mx-auto">
         <div className="flex flex-col gap-8">
-          <h1 className="text-2xl font-bold text-center text-gray-800">Pokémon Type Calculator</h1>
+          <h1 className="text-2xl font-bold text-center text-gray-800">Pokémon Triple Type Calculator</h1>
           <div className="flex flex-wrap gap-4 justify-center items-center">
             {Array.from({ length: selectorCount }, (_, index) => (
               <select
@@ -86,7 +103,10 @@ export default function App() {
               +
             </button>
             <button
-              onClick={() => setShowCustomTypeModal(true)}
+              onClick={() => {
+                setErrorMessage("");
+                setShowCustomTypeModal(true);
+              }}
               className="px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               Create Type
@@ -158,6 +178,13 @@ export default function App() {
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Create Custom Type</h2>
             
+            {/* Error message */}
+            {errorMessage && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+                {errorMessage}
+              </div>
+            )}
+
             {/* List of existing custom types */}
             {customTypes.length > 0 && (
               <div className="mb-6">
@@ -257,7 +284,10 @@ export default function App() {
               <div className="flex justify-end gap-4">
                 <button
                   type="button"
-                  onClick={() => setShowCustomTypeModal(false)}
+                  onClick={() => {
+                    setErrorMessage("");
+                    setShowCustomTypeModal(false);
+                  }}
                   className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
                 >
                   Cancel
